@@ -154,4 +154,74 @@ class AppViewModelTest {
         assertEquals(listOf("11:22:33:44:55:66", "11:22:33:44:55:66"), wol.sentMacs)
         collector.cancel()
     }
+
+    @Test
+    fun add_machine_success_emits_return_to_home_signal() = runTest {
+        val repo = FakeWakeRepository()
+        val wifi = FakeWifiIdentityProvider()
+        val wol = RecordingWolSender()
+
+        val home = repo.seedNetwork("HomeWiFi", "AA:BB:CC:DD:EE:01")
+        wifi.identity = NetworkIdentity(home.ssid, home.bssid)
+
+        val vm = AppViewModel(repo, wifi, wol, autoRefreshNetwork = false)
+        val collector = backgroundScope.launch { vm.uiState.collect { } }
+        vm.refreshNetworkIdentity()
+        advanceUntilIdle()
+
+        assertEquals(0, vm.uiState.value.returnToHomeSignal)
+
+        vm.addMachine("11:22:33:44:55:66", "Desktop")
+        advanceUntilIdle()
+
+        assertEquals(1, vm.uiState.value.returnToHomeSignal)
+        collector.cancel()
+    }
+
+    @Test
+    fun update_machine_changes_saved_values() = runTest {
+        val repo = FakeWakeRepository()
+        val wifi = FakeWifiIdentityProvider()
+        val wol = RecordingWolSender()
+
+        val home = repo.seedNetwork("HomeWiFi", "AA:BB:CC:DD:EE:01")
+        val machine = repo.seedMachine(home.id, "Desktop", "11:22:33:44:55:66")
+        wifi.identity = NetworkIdentity(home.ssid, home.bssid)
+
+        val vm = AppViewModel(repo, wifi, wol, autoRefreshNetwork = false)
+        val collector = backgroundScope.launch { vm.uiState.collect { } }
+        vm.refreshNetworkIdentity()
+        advanceUntilIdle()
+
+        vm.updateMachine(machine.id, "112233aabbcc", "Main PC")
+        advanceUntilIdle()
+
+        val approved = vm.uiState.value.homeMode as HomeMode.Approved
+        assertEquals("Main PC", approved.machines.first().name)
+        assertEquals("11:22:33:AA:BB:CC", approved.machines.first().macAddress)
+        collector.cancel()
+    }
+
+    @Test
+    fun remove_machine_deletes_it_from_current_network_list() = runTest {
+        val repo = FakeWakeRepository()
+        val wifi = FakeWifiIdentityProvider()
+        val wol = RecordingWolSender()
+
+        val home = repo.seedNetwork("HomeWiFi", "AA:BB:CC:DD:EE:01")
+        val machine = repo.seedMachine(home.id, "Desktop", "11:22:33:44:55:66")
+        wifi.identity = NetworkIdentity(home.ssid, home.bssid)
+
+        val vm = AppViewModel(repo, wifi, wol, autoRefreshNetwork = false)
+        val collector = backgroundScope.launch { vm.uiState.collect { } }
+        vm.refreshNetworkIdentity()
+        advanceUntilIdle()
+
+        vm.removeMachine(machine.id)
+        advanceUntilIdle()
+
+        val approved = vm.uiState.value.homeMode as HomeMode.Approved
+        assertTrue(approved.machines.isEmpty())
+        collector.cancel()
+    }
 }

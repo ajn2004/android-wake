@@ -34,4 +34,10 @@ interface MachineDao {
 
     @Query("UPDATE machines SET networkId = :networkId, name = :name WHERE id = :id")
     suspend fun updateNetworkAndName(id: Long, networkId: Long, name: String)
+
+    @Query("UPDATE machines SET name = :name, macAddress = :macAddress WHERE id = :id")
+    suspend fun updateNameAndMacById(id: Long, name: String, macAddress: String)
+
+    @Query("DELETE FROM machines WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

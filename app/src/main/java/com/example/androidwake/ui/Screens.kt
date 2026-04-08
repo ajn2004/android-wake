@@ -1,5 +1,6 @@
 package com.example.androidwake.ui
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,13 +33,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.example.androidwake.domain.MacAddress
+import com.example.androidwake.domain.Machine
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 private const val HOME_ROUTE = "home"
 private const val SETTINGS_ROUTE = "settings"
 private const val ADD_MACHINE_ROUTE = "add-machine"
+private const val EDIT_MACHINE_ROUTE = "edit-machine/{machineId}"
 
 @Composable
 fun WakeApp(
@@ -54,6 +61,14 @@ fun WakeApp(
         coroutineScope.launch {
             snackbarHostState.showSnackbar(message)
             viewModel.clearStatusMessage()
+        }
+    }
+
+    LaunchedEffect(state.returnToHomeSignal) {
+        if (state.returnToHomeSignal <= 0) return@LaunchedEffect
+        val route = navController.currentBackStackEntry?.destination?.route
+        if (route == ADD_MACHINE_ROUTE || route == EDIT_MACHINE_ROUTE) {
+            navController.popBackStack(HOME_ROUTE, inclusive = false)
         }
     }
 
@@ -74,6 +89,8 @@ fun WakeApp(
                     onOpenAddMachine = { navController.navigate(ADD_MACHINE_ROUTE) },
                     onWakeMachine = viewModel::wakeMachine,
                     onWakeAll = viewModel::wakeAllCurrentNetworkMachines,
+                    onEditMachine = { machine -> navController.navigate("edit-machine/${machine.id}") },
+                    onRemoveMachine = viewModel::removeMachine,
                     onRefresh = viewModel::refreshNetworkIdentity,
                 )
             }
@@ -89,6 +106,8 @@ fun WakeApp(
                 AddMachineScreen(
                     state = state,
                     onBack = { navController.popBackStack() },
+                    initialMac = "",
+                    initialName = "",
                     onSave = { mac, name ->
                         viewModel.addMachine(mac = mac, name = name)
                     },
@@ -96,19 +115,42 @@ fun WakeApp(
                     onCancelMove = viewModel::cancelPendingMove,
                 )
             }
+            composable(
+                route = EDIT_MACHINE_ROUTE,
+                arguments = listOf(navArgument("machineId") { type = NavType.LongType }),
+            ) { entry ->
+                val machineId = entry.arguments?.getLong("machineId")
+                val machine = ((state.homeMode as? HomeMode.Approved)?.machines ?: emptyList())
+                    .find { it.id == machineId }
+                EditMachineScreen(
+                    machine = machine,
+                    onBack = { navController.popBackStack() },
+                    onSave = { mac, name ->
+                        if (machine != null) {
+                            viewModel.updateMachine(machine.id, mac, name)
+                        }
+                    },
+                )
+            }
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun HomeScreen(
     state: AppUiState,
     onOpenSettings: () -> Unit,
     onOpenAddMachine: () -> Unit,
     onWakeMachine: (com.example.androidwake.domain.Machine) -> Unit,
     onWakeAll: () -> Unit,
+    onEditMachine: (Machine) -> Unit,
+    onRemoveMachine: (Long) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    var selectedMachine by remember { mutableStateOf<Machine?>(null) }
+    var machinePendingRemoval by remember { mutableStateOf<Machine?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -150,7 +192,12 @@ fun HomeScreen(
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(mode.machines, key = { it.id }) { machine ->
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = {},
+                                        onLongClick = { selectedMachine = machine },
+                                    ),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Column {
@@ -167,6 +214,59 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (selectedMachine != null) {
+        AlertDialog(
+            onDismissRequest = { selectedMachine = null },
+            title = { Text(selectedMachine?.name ?: "") },
+            text = { Text("Choose an action for this computer.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val machine = selectedMachine
+                        selectedMachine = null
+                        if (machine != null) onEditMachine(machine)
+                    }
+                ) {
+                    Text("Edit computer")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        machinePendingRemoval = selectedMachine
+                        selectedMachine = null
+                    }
+                ) {
+                    Text("Remove computer")
+                }
+            },
+        )
+    }
+
+    if (machinePendingRemoval != null) {
+        AlertDialog(
+            onDismissRequest = { machinePendingRemoval = null },
+            title = { Text("Remove computer") },
+            text = { Text("Remove ${machinePendingRemoval?.name} from this network?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = machinePendingRemoval?.id
+                        machinePendingRemoval = null
+                        if (id != null) onRemoveMachine(id)
+                    }
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { machinePendingRemoval = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -249,12 +349,14 @@ fun SettingsScreen(
 fun AddMachineScreen(
     state: AppUiState,
     onBack: () -> Unit,
+    initialMac: String,
+    initialName: String,
     onSave: (mac: String, name: String) -> Unit,
     onConfirmMove: () -> Unit,
     onCancelMove: () -> Unit,
 ) {
-    var mac by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
+    var mac by remember(initialMac) { mutableStateOf(initialMac) }
+    var name by remember(initialName) { mutableStateOf(initialName) }
 
     Column(
         modifier = Modifier
@@ -271,7 +373,7 @@ fun AddMachineScreen(
 
         OutlinedTextField(
             value = mac,
-            onValueChange = { mac = it },
+            onValueChange = { mac = MacAddress.formatForInput(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("MAC Address") },
             singleLine = true,
@@ -311,5 +413,58 @@ fun AddMachineScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+fun EditMachineScreen(
+    machine: Machine?,
+    onBack: () -> Unit,
+    onSave: (mac: String, name: String) -> Unit,
+) {
+    if (machine == null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Machine not found.")
+            Button(onClick = onBack) { Text("Back") }
+        }
+        return
+    }
+
+    var mac by remember(machine.id) { mutableStateOf(machine.macAddress) }
+    var name by remember(machine.id) { mutableStateOf(machine.name) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Edit Machine", style = MaterialTheme.typography.headlineSmall)
+
+        OutlinedTextField(
+            value = mac,
+            onValueChange = { mac = MacAddress.formatForInput(it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("MAC Address") },
+            singleLine = true,
+        )
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Name (optional)") },
+            singleLine = true,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onSave(mac, name) }) { Text("Save Changes") }
+            Button(onClick = onBack) { Text("Back") }
+        }
     }
 }

@@ -77,6 +77,24 @@ Phase 4 verification notes:
 - `assembleRelease` passed on `2026-04-08` (see `docs/release-smoke-checks-2026-04-08.md`).
 - On-device smoke checks passed on `R5CN208B19N` after authorization (see `docs/release-smoke-checks-2026-04-08.md`).
 
+### Phase 5: Quality-of-Life UX Improvements
+- [x] Implement lenient MAC typing UX in add/edit machine forms:
+  - Accept user input without separators and auto-format into colon-delimited pairs while typing.
+  - Example transform: `1122334455` -> `11:22:33:44:55`.
+  - Preserve normalized storage and existing validation behavior.
+- [x] Auto-return to main screen after successful machine add.
+- [x] Add long-press actions for machine rows on main screen:
+  - `Edit computer` opens edit flow with pre-filled values.
+  - `Remove computer` deletes the selected machine with confirmation prompt.
+- [x] Add repository/view-model support for machine update and delete operations.
+- [x] Add tests for QoL behavior:
+  - MAC auto-format input behavior (including edge cases and partial input).
+  - Successful add triggers navigation back to main screen.
+  - Long-press edit/remove actions update UI state and persistence correctly.
+- [ ] Run full test suite and smoke-check add/edit/remove flows on device/emulator.
+  - Unit suite passed with `:app:testDebugUnitTest` on `2026-04-08`.
+  - Device/emulator QoL smoke check still pending.
+
 ## Outstanding Decisions
 
 All previously identified decisions are now resolved.
@@ -117,3 +135,8 @@ All previously identified decisions are now resolved.
 - [x] `Wake specific machine` sends WoL packet to selected machine.
 - [x] Core tests for validation, gating, and machine association pass.
 - [x] README documents setup, usage, and limitations.
+- [x] MAC input auto-formats user-entered hex into colon-delimited pairs on add/edit screens.
+- [x] After adding a machine successfully, app navigates back to main screen automatically.
+- [x] Long-pressing a machine shows `Edit computer` and `Remove computer` options.
+- [x] User can edit an existing machine and save changes with validation preserved.
+- [x] User can remove an existing machine with confirmation and immediate list update.

@@ -30,6 +30,8 @@ interface WakeRepository {
 
     suspend fun addMachineToNetwork(networkId: Long, macRaw: String, nameRaw: String): Result<AddMachineResult>
     suspend fun moveMachineToNetwork(machineId: Long, targetNetworkId: Long, machineName: String): Result<Unit>
+    suspend fun updateMachine(machineId: Long, networkId: Long, macRaw: String, nameRaw: String): Result<Unit>
+    suspend fun removeMachine(machineId: Long)
 }
 
 class RoomWakeRepository(
@@ -107,5 +109,32 @@ class RoomWakeRepository(
     ): Result<Unit> {
         machineDao.updateNetworkAndName(machineId, targetNetworkId, machineName)
         return Result.success(Unit)
+    }
+
+    override suspend fun updateMachine(
+        machineId: Long,
+        networkId: Long,
+        macRaw: String,
+        nameRaw: String,
+    ): Result<Unit> {
+        val normalizedMac = MacAddress.normalize(macRaw)
+            ?: return Result.failure(IllegalArgumentException("Invalid MAC address."))
+        val resolvedName = nameRaw.trim().ifBlank { MacAddress.defaultMachineName(normalizedMac) }.take(50)
+
+        val existing = machineDao.getByMacAddress(normalizedMac)
+        if (existing != null && existing.id != machineId) {
+            return if (existing.networkId == networkId) {
+                Result.failure(IllegalArgumentException("A machine with this MAC already exists on this network."))
+            } else {
+                Result.failure(IllegalArgumentException("A machine with this MAC already exists on another network."))
+            }
+        }
+
+        machineDao.updateNameAndMacById(machineId, resolvedName, normalizedMac)
+        return Result.success(Unit)
+    }
+
+    override suspend fun removeMachine(machineId: Long) {
+        machineDao.deleteById(machineId)
     }
 }

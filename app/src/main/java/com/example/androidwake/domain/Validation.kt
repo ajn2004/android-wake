@@ -18,6 +18,16 @@ object MacAddress {
         return normalized
     }
 
+    fun formatForInput(raw: String): String {
+        val compact = raw.uppercase()
+            .filter { it.isDigit() || it in 'A'..'F' }
+            .take(12)
+        if (compact.isEmpty()) return ""
+
+        val pairs = compact.chunked(2)
+        return pairs.joinToString(":")
+    }
+
     fun defaultMachineName(normalizedMac: String): String {
         val suffix = normalizedMac.replace(":", "").takeLast(6)
         return "Machine $suffix"

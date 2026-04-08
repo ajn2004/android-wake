@@ -11,6 +11,10 @@ Android app for sending Wake-on-LAN (WoL) magic packets, gated by approved local
 - Lets you manage:
   - Approved networks (`SSID + BSSID`)
   - Machines (`name + MAC`) mapped to approved networks
+- Provides machine quality-of-life UX:
+  - MAC input auto-format while typing (for example `1122334455` -> `11:22:33:44:55`)
+  - Automatic return to the home screen after successful add/edit
+  - Long-press machine actions on home: `Edit computer` and `Remove computer`
 - Enforces global MAC uniqueness and prompts to move an existing machine between networks.
 
 ## Required Network Conditions
@@ -31,7 +35,7 @@ Prerequisites:
 Commands:
 
 ```bash
-./gradlew test
+./gradlew :app:testDebugUnitTest
 ./gradlew assembleDebug
 ./gradlew installDebug
 ```
@@ -48,10 +52,13 @@ Release build:
 2. Add one or more approved network identities (`SSID` + `BSSID`).
 3. Connect phone to one of those approved Wi-Fi networks.
 4. From home, choose:
-   - `Add Machine` and enter target machine MAC (name optional), or
+   - `Add Machine` and enter target machine MAC (name optional). MAC can be entered with or without separators and is auto-formatted, or
    - `Wake All Machines`, or
    - `Wake` for a specific machine.
 5. If MAC already exists on a different network, confirm the move prompt.
+6. Long-press a machine row to:
+   - `Edit computer` (pre-filled name + MAC), or
+   - `Remove computer` (with confirmation).
 
 ## Known Limitations
 

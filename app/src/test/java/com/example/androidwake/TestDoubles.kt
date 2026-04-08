@@ -104,6 +104,35 @@ class FakeWakeRepository : WakeRepository {
         return Result.success(Unit)
     }
 
+    override suspend fun updateMachine(
+        machineId: Long,
+        networkId: Long,
+        macRaw: String,
+        nameRaw: String,
+    ): Result<Unit> {
+        val normalizedMac = MacAddress.normalize(macRaw)
+            ?: return Result.failure(IllegalArgumentException("Invalid MAC address."))
+        val resolvedName = nameRaw.trim().ifBlank { MacAddress.defaultMachineName(normalizedMac) }.take(50)
+
+        val duplicate = machines.value.find { it.id != machineId && it.macAddress == normalizedMac }
+        if (duplicate != null) {
+            return if (duplicate.networkId == networkId) {
+                Result.failure(IllegalArgumentException("A machine with this MAC already exists on this network."))
+            } else {
+                Result.failure(IllegalArgumentException("A machine with this MAC already exists on another network."))
+            }
+        }
+
+        machines.value = machines.value.map {
+            if (it.id == machineId) it.copy(name = resolvedName, macAddress = normalizedMac) else it
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun removeMachine(machineId: Long) {
+        machines.value = machines.value.filterNot { it.id == machineId }
+    }
+
     suspend fun seedNetwork(ssid: String, bssid: String): ApprovedNetwork {
         addApprovedNetwork(ssid, bssid)
         return approvedNetworks.value.last()

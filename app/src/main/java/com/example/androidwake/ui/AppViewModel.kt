@@ -40,6 +40,7 @@ data class AppUiState(
     val homeMode: HomeMode = HomeMode.NonApproved("You have to connect to an approved WLAN network."),
     val statusMessage: String? = null,
     val pendingMove: PendingMove? = null,
+    val returnToHomeSignal: Int = 0,
 )
 
 private data class UiCoreState(
@@ -47,6 +48,7 @@ private data class UiCoreState(
     val approvedNetworks: List<ApprovedNetwork>,
     val homeMode: HomeMode,
     val statusMessage: String?,
+    val returnToHomeSignal: Int,
 )
 
 class AppViewModel(
@@ -60,6 +62,13 @@ class AppViewModel(
     private val identityFlow = MutableStateFlow<NetworkIdentity?>(null)
     private val statusMessageFlow = MutableStateFlow<String?>(null)
     private val pendingMoveFlow = MutableStateFlow<PendingMove?>(null)
+    private val returnToHomeSignalFlow = MutableStateFlow(0)
+    private val statusAndNavigationFlow = combine(
+        statusMessageFlow,
+        returnToHomeSignalFlow,
+    ) { status, returnToHomeSignal ->
+        status to returnToHomeSignal
+    }
 
     private val approvedNetworksFlow = repository.observeApprovedNetworks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -79,8 +88,10 @@ class AppViewModel(
         approvedNetworksFlow,
         currentApprovedFlow,
         machinesFlow,
-        statusMessageFlow,
-    ) { identity, networks, currentApproved, machines, status ->
+        statusAndNavigationFlow,
+    ) { identity, networks, currentApproved, machines, statusAndNavigation ->
+        val status = statusAndNavigation.first
+        val returnToHomeSignal = statusAndNavigation.second
         val homeMode = if (currentApproved == null) {
             val reason = if (identity == null) {
                 "You have to connect to a WLAN network and grant Wi-Fi permissions."
@@ -97,6 +108,7 @@ class AppViewModel(
             approvedNetworks = networks,
             homeMode = homeMode,
             statusMessage = status,
+            returnToHomeSignal = returnToHomeSignal,
         )
     }
 
@@ -110,6 +122,7 @@ class AppViewModel(
             homeMode = core.homeMode,
             statusMessage = core.statusMessage,
             pendingMove = pendingMove,
+            returnToHomeSignal = core.returnToHomeSignal,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -165,6 +178,7 @@ class AppViewModel(
                 is AddMachineResult.Added -> {
                     pendingMoveFlow.value = null
                     statusMessageFlow.value = "Added ${addResult.machine.name}."
+                    returnToHomeSignalFlow.value += 1
                 }
                 is AddMachineResult.AlreadyExistsOnSameNetwork -> {
                     pendingMoveFlow.value = null
@@ -222,6 +236,36 @@ class AppViewModel(
                     .onSuccess { sentCount++ }
             }
             statusMessageFlow.value = "Wake sent to $sentCount machine(s)."
+        }
+    }
+
+    fun updateMachine(machineId: Long, mac: String, name: String) {
+        val approved = (uiState.value.homeMode as? HomeMode.Approved)?.network
+        if (approved == null) {
+            statusMessageFlow.value = "Connect to an approved network before editing machines."
+            return
+        }
+
+        viewModelScope.launch {
+            val result = repository.updateMachine(
+                machineId = machineId,
+                networkId = approved.id,
+                macRaw = mac,
+                nameRaw = name,
+            )
+            statusMessageFlow.value = if (result.isSuccess) {
+                returnToHomeSignalFlow.value += 1
+                "Updated machine."
+            } else {
+                result.exceptionOrNull()?.message
+            }
+        }
+    }
+
+    fun removeMachine(machineId: Long) {
+        viewModelScope.launch {
+            repository.removeMachine(machineId)
+            statusMessageFlow.value = "Removed machine."
         }
     }
 }
