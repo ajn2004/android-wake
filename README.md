@@ -36,10 +36,11 @@ Out of scope right now:
 
 ## Status
 
-Planning is in progress.
+Phase 1 (Discovery and Design) is complete.
 
 - Ideation source: [`docs/ideation.md`](docs/ideation.md)
 - Execution checklist: [`docs/todo.md`](docs/todo.md)
+- Phase 1 design output: [`docs/phase1-design.md`](docs/phase1-design.md)
 
 ## Planned Implementation Principles
 
