@@ -11,6 +11,7 @@ import com.example.androidwake.domain.NetworkIdentity
 import com.example.androidwake.domain.WifiIdentityProvider
 import com.example.androidwake.domain.WolSender
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,10 +42,19 @@ data class AppUiState(
     val pendingMove: PendingMove? = null,
 )
 
+private data class UiCoreState(
+    val identity: NetworkIdentity?,
+    val approvedNetworks: List<ApprovedNetwork>,
+    val homeMode: HomeMode,
+    val statusMessage: String?,
+)
+
 class AppViewModel(
     private val repository: WakeRepository,
     private val wifiIdentityProvider: WifiIdentityProvider,
     private val wolSender: WolSender,
+    private val autoRefreshNetwork: Boolean = true,
+    private val refreshIntervalMs: Long = 5_000,
 ) : ViewModel() {
 
     private val identityFlow = MutableStateFlow<NetworkIdentity?>(null)
@@ -59,18 +69,18 @@ class AppViewModel(
         networks.find { it.ssid == identity.ssid && it.bssid.equals(identity.bssid, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val machinesFlow = currentApprovedFlow.flatMapLatest { network ->
         if (network == null) flowOf(emptyList()) else repository.observeMachinesForNetwork(network.id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val uiState: StateFlow<AppUiState> = combine(
+    private val uiCoreState = combine(
         identityFlow,
         approvedNetworksFlow,
         currentApprovedFlow,
         machinesFlow,
         statusMessageFlow,
-        pendingMoveFlow,
-    ) { identity, networks, currentApproved, machines, status, pendingMove ->
+    ) { identity, networks, currentApproved, machines, status ->
         val homeMode = if (currentApproved == null) {
             val reason = if (identity == null) {
                 "You have to connect to a WLAN network and grant Wi-Fi permissions."
@@ -82,21 +92,35 @@ class AppViewModel(
             HomeMode.Approved(currentApproved, machines)
         }
 
-        AppUiState(
+        UiCoreState(
             identity = identity,
             approvedNetworks = networks,
             homeMode = homeMode,
             statusMessage = status,
+        )
+    }
+
+    val uiState: StateFlow<AppUiState> = combine(
+        uiCoreState,
+        pendingMoveFlow,
+    ) { core, pendingMove ->
+        AppUiState(
+            identity = core.identity,
+            approvedNetworks = core.approvedNetworks,
+            homeMode = core.homeMode,
+            statusMessage = core.statusMessage,
             pendingMove = pendingMove,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
     init {
         refreshNetworkIdentity()
-        viewModelScope.launch {
-            while (true) {
-                delay(5_000)
-                refreshNetworkIdentity()
+        if (autoRefreshNetwork) {
+            viewModelScope.launch {
+                while (true) {
+                    delay(refreshIntervalMs)
+                    refreshNetworkIdentity()
+                }
             }
         }
     }

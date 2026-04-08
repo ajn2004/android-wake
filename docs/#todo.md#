@@ -50,15 +50,15 @@ Build a simple Android app that sends Wake-on-LAN magic packets only when the de
 - [x] Implement WoL packet sender utility (broadcast UDP magic packet from MAC).
 - [x] Wire wake actions:
   - Wake selected machine
-  - Wake all machines associated with current SSID
+  - Wake allrmachines associated with current SSID
 
 ### Phase 3: Validation
-- [x] Add unit tests for MAC validation logic and duplicate detection.
-- [x] Add unit tests for machine filtering by current SSID.
-- [x] Add integration test(s) for gating logic (approved vs non-approved network state).
-- [x] Add integration test(s) for add/remove approved SSID behavior.
-- [x] Add integration test(s) for add machine and wake-action enablement.
-- [x] Run full test suite and verify passing in CI/local environment.
+- [ ] Add unit tests for MAC validation logic and duplicate detection.
+- [ ] Add unit tests for machine filtering by current SSID.
+- [ ] Add integration test(s) for gating logic (approved vs non-approved network state).
+- [ ] Add integration test(s) for add/remove approved SSID behavior.
+- [ ] Add integration test(s) for add machine and wake-action enablement.
+- [ ] Run full test suite and verify passing in CI/local environment.
 
 ### Phase 4: Release and Follow-up
 - [ ] Add concise in-app help text clarifying local-network-only behavior.
@@ -110,5 +110,5 @@ All previously identified decisions are now resolved.
 - [ ] Duplicate MAC creation is blocked globally and offers a move prompt flow.
 - [ ] `Wake all` sends WoL packets to all machines for current SSID.
 - [ ] `Wake specific machine` sends WoL packet to selected machine.
-- [x] Core tests for validation, gating, and machine association pass.
+- [ ] Core tests for validation, gating, and machine association pass.
 - [ ] README documents setup, usage, and limitations.
