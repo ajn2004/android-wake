@@ -1,5 +1,7 @@
 package com.example.androidwake.ui
 
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,10 +29,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -39,6 +48,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.androidwake.domain.MacAddress
 import com.example.androidwake.domain.Machine
+import com.example.androidwake.domain.WifiPermissionPolicy
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.ExperimentalFoundationApi
 
@@ -53,8 +63,36 @@ fun WakeApp(
     viewModel: AppViewModel,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    var permissionPromptLaunched by rememberSaveable { mutableStateOf(false) }
+    val runtimeWifiPermissions = remember {
+        WifiPermissionPolicy.requiredRuntimePermissionsForSdk(Build.VERSION.SDK_INT)
+    }
+    val hasRequiredWifiPermissions = runtimeWifiPermissions.all { permission ->
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        viewModel.refreshNetworkIdentity()
+    }
+
+    fun requestWifiPermissions() {
+        if (runtimeWifiPermissions.isNotEmpty()) {
+            permissionLauncher.launch(runtimeWifiPermissions.toTypedArray())
+        }
+    }
+
+    val shouldShowPermissionPrompt = !hasRequiredWifiPermissions && state.identity == null
+
+    LaunchedEffect(shouldShowPermissionPrompt) {
+        if (shouldShowPermissionPrompt && !permissionPromptLaunched) {
+            permissionPromptLaunched = true
+            requestWifiPermissions()
+        }
+    }
 
     LaunchedEffect(state.statusMessage) {
         val message = state.statusMessage ?: return@LaunchedEffect
@@ -85,12 +123,14 @@ fun WakeApp(
             composable(HOME_ROUTE) {
                 HomeScreen(
                     state = state,
+                    wifiPermissionsMissing = shouldShowPermissionPrompt,
                     onOpenSettings = { navController.navigate(SETTINGS_ROUTE) },
                     onOpenAddMachine = { navController.navigate(ADD_MACHINE_ROUTE) },
                     onWakeMachine = viewModel::wakeMachine,
                     onWakeAll = viewModel::wakeAllCurrentNetworkMachines,
                     onEditMachine = { machine -> navController.navigate("edit-machine/${machine.id}") },
                     onRemoveMachine = viewModel::removeMachine,
+                    onRequestWifiPermissions = { requestWifiPermissions() },
                     onRefresh = viewModel::refreshNetworkIdentity,
                 )
             }
@@ -99,6 +139,7 @@ fun WakeApp(
                     state = state,
                     onBack = { navController.popBackStack() },
                     onAddNetwork = viewModel::addApprovedNetwork,
+                    onAddCurrentNetwork = viewModel::addCurrentNetwork,
                     onRemoveNetwork = viewModel::removeApprovedNetwork,
                 )
             }
@@ -140,12 +181,14 @@ fun WakeApp(
 @OptIn(ExperimentalFoundationApi::class)
 fun HomeScreen(
     state: AppUiState,
+    wifiPermissionsMissing: Boolean,
     onOpenSettings: () -> Unit,
     onOpenAddMachine: () -> Unit,
     onWakeMachine: (com.example.androidwake.domain.Machine) -> Unit,
     onWakeAll: () -> Unit,
     onEditMachine: (Machine) -> Unit,
     onRemoveMachine: (Long) -> Unit,
+    onRequestWifiPermissions: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     var selectedMachine by remember { mutableStateOf<Machine?>(null) }
@@ -167,6 +210,9 @@ fun HomeScreen(
         when (val mode = state.homeMode) {
             is HomeMode.NonApproved -> {
                 Text(mode.reason)
+                if (wifiPermissionsMissing) {
+                    Button(onClick = onRequestWifiPermissions) { Text("Grant Wi-Fi Permissions") }
+                }
                 state.identity?.let { identity ->
                     Text("Connected: ${identity.ssid} (${identity.bssid})")
                 }
@@ -275,6 +321,7 @@ fun SettingsScreen(
     state: AppUiState,
     onBack: () -> Unit,
     onAddNetwork: (ssid: String, bssid: String) -> Unit,
+    onAddCurrentNetwork: () -> Unit,
     onRemoveNetwork: (Long) -> Unit,
 ) {
     var ssid by remember { mutableStateOf("") }
@@ -316,6 +363,19 @@ fun SettingsScreen(
             Text("Add Approved Network")
         }
 
+        state.identity?.let { identity ->
+            Text(
+                "Current Wi-Fi: ${identity.ssid} (${identity.bssid})",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Button(onClick = onAddCurrentNetwork) {
+                Text("Add Current Network")
+            }
+        } ?: Text(
+            "Current Wi-Fi network not detected.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
         Divider()
         Text("Configured Networks")
         if (state.approvedNetworks.isEmpty()) {
@@ -355,7 +415,14 @@ fun AddMachineScreen(
     onConfirmMove: () -> Unit,
     onCancelMove: () -> Unit,
 ) {
-    var mac by remember(initialMac) { mutableStateOf(initialMac) }
+    var mac by remember(initialMac) {
+        mutableStateOf(
+            TextFieldValue(
+                text = initialMac,
+                selection = TextRange(initialMac.length),
+            )
+        )
+    }
     var name by remember(initialName) { mutableStateOf(initialName) }
 
     Column(
@@ -373,7 +440,16 @@ fun AddMachineScreen(
 
         OutlinedTextField(
             value = mac,
-            onValueChange = { mac = MacAddress.formatForInput(it) },
+            onValueChange = { value ->
+                val (formatted, selection) = MacAddress.formatForInputWithSelection(
+                    raw = value.text,
+                    selectionStart = value.selection.start,
+                )
+                mac = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(selection),
+                )
+            },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("MAC Address") },
             singleLine = true,
@@ -388,7 +464,7 @@ fun AddMachineScreen(
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onSave(mac, name) }) { Text("Save Machine") }
+            Button(onClick = { onSave(mac.text, name) }) { Text("Save Machine") }
             Button(onClick = onBack) { Text("Back") }
         }
     }
@@ -435,7 +511,14 @@ fun EditMachineScreen(
         return
     }
 
-    var mac by remember(machine.id) { mutableStateOf(machine.macAddress) }
+    var mac by remember(machine.id) {
+        mutableStateOf(
+            TextFieldValue(
+                text = machine.macAddress,
+                selection = TextRange(machine.macAddress.length),
+            )
+        )
+    }
     var name by remember(machine.id) { mutableStateOf(machine.name) }
 
     Column(
@@ -448,7 +531,16 @@ fun EditMachineScreen(
 
         OutlinedTextField(
             value = mac,
-            onValueChange = { mac = MacAddress.formatForInput(it) },
+            onValueChange = { value ->
+                val (formatted, selection) = MacAddress.formatForInputWithSelection(
+                    raw = value.text,
+                    selectionStart = value.selection.start,
+                )
+                mac = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(selection),
+                )
+            },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("MAC Address") },
             singleLine = true,
@@ -463,7 +555,7 @@ fun EditMachineScreen(
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onSave(mac, name) }) { Text("Save Changes") }
+            Button(onClick = { onSave(mac.text, name) }) { Text("Save Changes") }
             Button(onClick = onBack) { Text("Back") }
         }
     }

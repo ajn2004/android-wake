@@ -28,6 +28,20 @@ object MacAddress {
         return pairs.joinToString(":")
     }
 
+    fun formatForInputWithSelection(raw: String, selectionStart: Int): Pair<String, Int> {
+        val safeSelection = selectionStart.coerceIn(0, raw.length)
+        val hexBeforeSelection = raw.take(safeSelection)
+            .uppercase()
+            .count { it.isDigit() || it in 'A'..'F' }
+            .coerceAtMost(12)
+        val formatted = formatForInput(raw)
+        val mappedSelection = when {
+            hexBeforeSelection <= 0 -> 0
+            else -> (hexBeforeSelection + ((hexBeforeSelection - 1) / 2)).coerceAtMost(formatted.length)
+        }
+        return formatted to mappedSelection
+    }
+
     fun defaultMachineName(normalizedMac: String): String {
         val suffix = normalizedMac.replace(":", "").takeLast(6)
         return "Machine $suffix"

@@ -153,6 +153,15 @@ class AppViewModel(
         }
     }
 
+    fun addCurrentNetwork() {
+        val identity = uiState.value.identity
+        if (identity == null) {
+            statusMessageFlow.value = "Connect to a Wi-Fi network before adding current network."
+            return
+        }
+        addApprovedNetwork(identity.ssid, identity.bssid)
+    }
+
     fun removeApprovedNetwork(networkId: Long) {
         viewModelScope.launch {
             repository.removeApprovedNetwork(networkId)

@@ -15,6 +15,13 @@ class MacAddressTest {
     }
 
     @Test
+    fun format_for_input_with_selection_keeps_cursor_at_expected_position() {
+        val (formatted, selection) = MacAddress.formatForInputWithSelection("1A2", 3)
+        assertEquals("1A:2", formatted)
+        assertEquals(4, selection)
+    }
+
+    @Test
     fun normalize_accepts_common_mac_formats_and_rejects_invalid_values() {
         assertEquals("AA:BB:CC:DD:EE:FF", MacAddress.normalize("aa-bb-cc-dd-ee-ff"))
         assertEquals("AA:BB:CC:DD:EE:FF", MacAddress.normalize("aabbccddeeff"))

@@ -125,6 +125,27 @@ class AppViewModelTest {
     }
 
     @Test
+    fun add_current_network_adds_connected_identity_to_approved_list() = runTest {
+        val repo = FakeWakeRepository()
+        val wifi = FakeWifiIdentityProvider()
+        val wol = RecordingWolSender()
+        val vm = AppViewModel(repo, wifi, wol, autoRefreshNetwork = false)
+        val collector = backgroundScope.launch { vm.uiState.collect { } }
+
+        wifi.identity = NetworkIdentity("HomeWiFi", "AA:BB:CC:DD:EE:01")
+        vm.refreshNetworkIdentity()
+        advanceUntilIdle()
+
+        vm.addCurrentNetwork()
+        advanceUntilIdle()
+
+        assertEquals(1, vm.uiState.value.approvedNetworks.size)
+        assertEquals("HomeWiFi", vm.uiState.value.approvedNetworks.first().ssid)
+        assertEquals("AA:BB:CC:DD:EE:01", vm.uiState.value.approvedNetworks.first().bssid)
+        collector.cancel()
+    }
+
+    @Test
     fun add_machine_and_wake_actions_send_magic_packets() = runTest {
         val repo = FakeWakeRepository()
         val wifi = FakeWifiIdentityProvider()

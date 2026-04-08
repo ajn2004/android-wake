@@ -32,6 +32,14 @@ Prerequisites:
 - JDK 17
 - Android SDK installed (`ANDROID_HOME` or `local.properties` with `sdk.dir`)
 
+If multiple JDKs are installed, force Gradle to use Java 17:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
+java -version
+```
+
 Commands:
 
 ```bash
@@ -49,14 +57,17 @@ Release build:
 ## How To Use
 
 1. Open app and go to `Manage Approved Networks`.
-2. Add one or more approved network identities (`SSID` + `BSSID`).
-3. Connect phone to one of those approved Wi-Fi networks.
-4. From home, choose:
+2. If prompted, grant Wi-Fi-related runtime permissions so the app can read current Wi-Fi identity.
+   - Depending on Android version/device behavior, this may include location permission.
+   - If permissions were denied previously, use `Grant Wi-Fi Permissions` from the home screen.
+3. Add one or more approved network identities (`SSID` + `BSSID`), or use `Add Current Network` when already connected to Wi-Fi.
+4. Connect phone to one of those approved Wi-Fi networks.
+5. From home, choose:
    - `Add Machine` and enter target machine MAC (name optional). MAC can be entered with or without separators and is auto-formatted, or
    - `Wake All Machines`, or
    - `Wake` for a specific machine.
-5. If MAC already exists on a different network, confirm the move prompt.
-6. Long-press a machine row to:
+6. If MAC already exists on a different network, confirm the move prompt.
+7. Long-press a machine row to:
    - `Edit computer` (pre-filled name + MAC), or
    - `Remove computer` (with confirmation).
 
