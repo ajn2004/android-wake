@@ -116,6 +116,10 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text = "Android Wake", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Wake packets are sent only on your current local Wi-Fi. Remote/internet wake is not supported.",
+            style = MaterialTheme.typography.bodySmall,
+        )
         Button(onClick = onRefresh) { Text("Refresh Network") }
 
         when (val mode = state.homeMode) {
@@ -183,6 +187,10 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Approved Networks", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Only devices connected to an approved SSID + BSSID can use wake actions.",
+            style = MaterialTheme.typography.bodySmall,
+        )
 
         OutlinedTextField(
             value = ssid,
@@ -256,6 +264,10 @@ fun AddMachineScreen(
     ) {
         Text("Add Machine", style = MaterialTheme.typography.headlineSmall)
         Text("Machine is auto-associated with the currently connected approved SSID.")
+        Text(
+            "Wake-on-LAN works only if this phone and target machine are on the same local network.",
+            style = MaterialTheme.typography.bodySmall,
+        )
 
         OutlinedTextField(
             value = mac,

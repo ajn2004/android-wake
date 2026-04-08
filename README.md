@@ -2,49 +2,66 @@
 
 Android app for sending Wake-on-LAN (WoL) magic packets, gated by approved local Wi-Fi networks.
 
-## General Idea
+## What It Does
 
-This repository is for a simple Android utility that wakes machines on a local network.  
-The app should only allow wake actions when the phone is connected to a user-approved network identity (`SSID + BSSID`).
+- Sends WoL packets only when the phone is connected to an approved network identity (`SSID + BSSID`).
+- Supports waking:
+  - All machines registered to the current approved network
+  - One selected machine
+- Lets you manage:
+  - Approved networks (`SSID + BSSID`)
+  - Machines (`name + MAC`) mapped to approved networks
+- Enforces global MAC uniqueness and prompts to move an existing machine between networks.
 
-When connected to a non-approved network, the app should show a clear message and only expose network settings management.
+## Required Network Conditions
 
-## Goals
+- Phone must be connected to Wi-Fi.
+- Current Wi-Fi network must exactly match a saved approved pair:
+  - Same `SSID`
+  - Same `BSSID`
+- Target machine must be reachable on the same local network and configured to accept WoL.
+- Router/AP must allow local broadcast traffic used by WoL.
 
-- Provide a fast, simple UI to wake machines on the current approved network.
-- Improve safety by restricting wake actions to approved `SSID + BSSID` pairs.
-- Support both:
-  - Wake all registered machines on the current network
-  - Wake a specific registered machine
-- Let users manage:
-  - Approved networks
-  - Machines (MAC-based), with optional display names
-- Enforce global MAC uniqueness and prompt users to move an existing machine entry instead of duplicating it.
-- Target broader Android device compatibility (lower minimum API).
+## Build And Run
 
-## Current Scope
+Prerequisites:
+- JDK 17
+- Android SDK installed (`ANDROID_HOME` or `local.properties` with `sdk.dir`)
 
-In scope right now:
-- Local-only WoL behavior over Wi-Fi
-- Local persistence for approved networks and machine registry
-- Basic validation and test coverage for network gating and machine management
+Commands:
 
-Out of scope right now:
-- Remote/internet wake scenarios
-- Background scheduling or automation
-- Cloud sync, user accounts, or multi-device state
+```bash
+./gradlew test
+./gradlew assembleDebug
+./gradlew installDebug
+```
 
-## Status
+Release build:
 
-Phase 1 (Discovery and Design) is complete.
+```bash
+./gradlew assembleRelease
+```
 
-- Ideation source: [`docs/ideation.md`](docs/ideation.md)
+## How To Use
+
+1. Open app and go to `Manage Approved Networks`.
+2. Add one or more approved network identities (`SSID` + `BSSID`).
+3. Connect phone to one of those approved Wi-Fi networks.
+4. From home, choose:
+   - `Add Machine` and enter target machine MAC (name optional), or
+   - `Wake All Machines`, or
+   - `Wake` for a specific machine.
+5. If MAC already exists on a different network, confirm the move prompt.
+
+## Known Limitations
+
+- Local network only; internet/remote wake is out of scope.
+- Wi-Fi identity access depends on Android permissions/version behavior.
+- No background scheduling, automation, cloud sync, or multi-user support.
+- Smoke testing on a physical device depends on having an attached test device/emulator and compatible local network setup.
+
+## Project Docs
+
+- Ideation: [`docs/ideation.md`](docs/ideation.md)
+- Design: [`docs/phase1-design.md`](docs/phase1-design.md)
 - Execution checklist: [`docs/todo.md`](docs/todo.md)
-- Phase 1 design output: [`docs/phase1-design.md`](docs/phase1-design.md)
-
-## Planned Implementation Principles
-
-- `KISS`: keep flows simple and explicit
-- `YAGNI`: avoid extra features outside the current scope
-- `DRY`: centralize validation and wake logic
-- `SOLID`: separate network detection, persistence, and wake packet sending concerns

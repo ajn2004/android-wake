@@ -61,16 +61,21 @@ Build a simple Android app that sends Wake-on-LAN magic packets only when the de
 - [x] Run full test suite and verify passing in CI/local environment.
 
 ### Phase 4: Release and Follow-up
-- [ ] Add concise in-app help text clarifying local-network-only behavior.
-- [ ] Verify release build, install on test device, and run smoke checks:
+- [x] Add concise in-app help text clarifying local-network-only behavior.
+- [x] Verify release build, install on test device, and run smoke checks:
   - Non-approved WLAN state
   - Approved WLAN state
   - Wake one / wake all
-- [ ] Document setup and usage in project README:
+- [x] Document setup and usage in project README:
   - Required network conditions
   - How to register SSIDs and machines
   - Known limitations
-- [ ] Tag initial release version and capture follow-up improvements backlog.
+- [ ] Tag initial release version.
+- [x] Capture follow-up improvements backlog.
+
+Phase 4 verification notes:
+- `assembleRelease` passed on `2026-04-08` (see `docs/release-smoke-checks-2026-04-08.md`).
+- On-device smoke checks passed on `R5CN208B19N` after authorization (see `docs/release-smoke-checks-2026-04-08.md`).
 
 ## Outstanding Decisions
 
@@ -103,12 +108,12 @@ All previously identified decisions are now resolved.
 - Insufficient device/network testing could hide environment-specific failures.
 
 ## Definition of Done
-- [ ] App shows only warning/settings when not connected to an approved WLAN.
-- [ ] App shows wake actions and machine list when connected to an approved WLAN.
-- [ ] User can add/remove approved SSID+BSSID pairs and changes persist across app restarts.
-- [ ] User can add machine with validated MAC and optional name (with generated default label when omitted), and machine is bound to current approved network.
-- [ ] Duplicate MAC creation is blocked globally and offers a move prompt flow.
-- [ ] `Wake all` sends WoL packets to all machines for current SSID.
-- [ ] `Wake specific machine` sends WoL packet to selected machine.
+- [x] App shows only warning/settings when not connected to an approved WLAN.
+- [x] App shows wake actions and machine list when connected to an approved WLAN.
+- [x] User can add/remove approved SSID+BSSID pairs and changes persist across app restarts.
+- [x] User can add machine with validated MAC and optional name (with generated default label when omitted), and machine is bound to current approved network.
+- [x] Duplicate MAC creation is blocked globally and offers a move prompt flow.
+- [x] `Wake all` sends WoL packets to all machines for current SSID.
+- [x] `Wake specific machine` sends WoL packet to selected machine.
 - [x] Core tests for validation, gating, and machine association pass.
-- [ ] README documents setup, usage, and limitations.
+- [x] README documents setup, usage, and limitations.
