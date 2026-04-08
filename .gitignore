@@ -1,3 +1,5 @@
-docs/*.md
-.env
-.codex
+/.gradle
+/local.properties
+/.idea
+/build
+/app/build
