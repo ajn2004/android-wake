@@ -22,7 +22,8 @@ class QuickWakeWidgetRemoteViewsFactory(
         val resolver = QuickWakeWidgetStateResolver(repository, wifiProvider)
 
         val resolved = runBlocking { resolver.resolve() }
-        machines = if (resolved is QuickWakeWidgetState.Approved) resolved.machines else emptyList()
+        val state = QuickWakeWidgetRenderStateStore.choose(resolved)
+        machines = if (state is QuickWakeWidgetState.Approved) state.machines else emptyList()
     }
 
     override fun onDestroy() {

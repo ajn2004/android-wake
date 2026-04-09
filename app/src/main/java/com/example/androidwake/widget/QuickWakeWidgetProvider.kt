@@ -103,7 +103,8 @@ class QuickWakeWidgetProvider : AppWidgetProvider() {
             val repository = AppServices.wakeRepository(context)
             val wifiProvider = AppServices.wifiIdentityProvider(context)
             val resolver = QuickWakeWidgetStateResolver(repository, wifiProvider)
-            val state = resolver.resolve()
+            val resolved = resolver.resolve()
+            val state = QuickWakeWidgetRenderStateStore.choose(resolved)
 
             appWidgetIds.forEach { widgetId ->
                 val views = when (state) {
