@@ -71,10 +71,25 @@ Release build:
    - `Edit computer` (pre-filled name + MAC), or
    - `Remove computer` (with confirmation).
 
+## Home Screen Widget
+
+- Add the `Android Wake` widget from the launcher widget picker.
+- Widget behavior:
+  - If not on an approved Wi-Fi network, it shows `Not connected to an approved network.`
+  - If on an approved network, it shows:
+    - `Wake all`
+    - Scrollable machine list; tap any machine row to send wake for that machine.
+- Widget refreshes on:
+  - Widget update events
+  - App resume
+  - App data changes (approved networks/machines add, edit, remove, move)
+- If you tap wake while no longer on an approved network, action is safely blocked and a short status toast is shown.
+
 ## Known Limitations
 
 - Local network only; internet/remote wake is out of scope.
 - Wi-Fi identity access depends on Android permissions/version behavior.
+- Home-screen widget refresh timing can vary by launcher/OEM power management behavior.
 - No background scheduling, automation, cloud sync, or multi-user support.
 - Smoke testing on a physical device depends on having an attached test device/emulator and compatible local network setup.
 

@@ -55,6 +55,7 @@ class AppViewModel(
     private val repository: WakeRepository,
     private val wifiIdentityProvider: WifiIdentityProvider,
     private val wolSender: WolSender,
+    private val onDataChanged: () -> Unit = {},
     private val autoRefreshNetwork: Boolean = true,
     private val refreshIntervalMs: Long = 5_000,
 ) : ViewModel() {
@@ -139,7 +140,10 @@ class AppViewModel(
     }
 
     fun refreshNetworkIdentity() {
-        identityFlow.value = wifiIdentityProvider.getCurrentIdentity()
+        val updated = wifiIdentityProvider.getCurrentIdentity()
+        val changed = identityFlow.value != updated
+        identityFlow.value = updated
+        if (changed) onDataChanged()
     }
 
     fun clearStatusMessage() {
@@ -150,6 +154,7 @@ class AppViewModel(
         viewModelScope.launch {
             val result = repository.addApprovedNetwork(ssid, bssid)
             statusMessageFlow.value = result.exceptionOrNull()?.message ?: "Approved network saved."
+            if (result.isSuccess) onDataChanged()
         }
     }
 
@@ -166,6 +171,7 @@ class AppViewModel(
         viewModelScope.launch {
             repository.removeApprovedNetwork(networkId)
             statusMessageFlow.value = "Approved network removed."
+            onDataChanged()
         }
     }
 
@@ -188,6 +194,7 @@ class AppViewModel(
                     pendingMoveFlow.value = null
                     statusMessageFlow.value = "Added ${addResult.machine.name}."
                     returnToHomeSignalFlow.value += 1
+                    onDataChanged()
                 }
                 is AddMachineResult.AlreadyExistsOnSameNetwork -> {
                     pendingMoveFlow.value = null
@@ -225,6 +232,7 @@ class AppViewModel(
             } else {
                 result.exceptionOrNull()?.message
             }
+            if (result.isSuccess) onDataChanged()
         }
     }
 
@@ -268,6 +276,7 @@ class AppViewModel(
             } else {
                 result.exceptionOrNull()?.message
             }
+            if (result.isSuccess) onDataChanged()
         }
     }
 
@@ -275,6 +284,7 @@ class AppViewModel(
         viewModelScope.launch {
             repository.removeMachine(machineId)
             statusMessageFlow.value = "Removed machine."
+            onDataChanged()
         }
     }
 }
@@ -283,11 +293,17 @@ class AppViewModelFactory(
     private val repository: WakeRepository,
     private val wifiIdentityProvider: WifiIdentityProvider,
     private val wolSender: WolSender,
+    private val onDataChanged: () -> Unit = {},
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AppViewModel::class.java)) {
-            return AppViewModel(repository, wifiIdentityProvider, wolSender) as T
+            return AppViewModel(
+                repository = repository,
+                wifiIdentityProvider = wifiIdentityProvider,
+                wolSender = wolSender,
+                onDataChanged = onDataChanged,
+            ) as T
         }
         error("Unknown ViewModel class: ${modelClass.name}")
     }

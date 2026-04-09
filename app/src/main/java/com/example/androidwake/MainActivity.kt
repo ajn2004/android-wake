@@ -6,28 +6,35 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.androidwake.data.AppDatabase
-import com.example.androidwake.data.RoomWakeRepository
-import com.example.androidwake.network.AndroidWifiIdentityProvider
-import com.example.androidwake.network.UdpWolSender
+import com.example.androidwake.app.AppServices
 import com.example.androidwake.ui.AppViewModel
 import com.example.androidwake.ui.AppViewModelFactory
 import com.example.androidwake.ui.WakeApp
+import com.example.androidwake.widget.QuickWakeWidgetUpdater
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        QuickWakeWidgetUpdater.requestUpdate(applicationContext)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val db = AppDatabase.getInstance(applicationContext)
-        val repository = RoomWakeRepository(db.approvedNetworkDao(), db.machineDao())
-        val wifiProvider = AndroidWifiIdentityProvider(applicationContext)
-        val wolSender = UdpWolSender()
+        val repository = AppServices.wakeRepository(applicationContext)
+        val wifiProvider = AppServices.wifiIdentityProvider(applicationContext)
+        val wolSender = AppServices.wolSender()
 
         setContent {
             val navController = rememberNavController()
             val vm: AppViewModel = viewModel(
-                factory = AppViewModelFactory(repository, wifiProvider, wolSender)
+                factory = AppViewModelFactory(
+                    repository = repository,
+                    wifiIdentityProvider = wifiProvider,
+                    wolSender = wolSender,
+                    onDataChanged = { QuickWakeWidgetUpdater.requestUpdate(applicationContext) },
+                )
             )
             WakeApp(navController = navController, viewModel = vm)
         }

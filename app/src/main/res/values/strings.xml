@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Android Wake</string>
+    <string name="widget_description">Quick wake controls for approved networks.</string>
+    <string name="widget_not_connected">Not connected to an approved network.</string>
+    <string name="widget_open_app">Open App</string>
+    <string name="widget_wake_all">Wake all</string>
+    <string name="widget_no_machines">No machines registered for this network.</string>
 </resources>

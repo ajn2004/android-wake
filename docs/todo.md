@@ -95,9 +95,65 @@ Phase 4 verification notes:
   - Unit suite passed with `:app:testDebugUnitTest` on `2026-04-08`.
   - Device/emulator QoL smoke check still pending.
 
+### Phase 6: Home Screen Widget (Quick Wake)
+- [x] Define widget UX and interactions (KISS/YAGNI):
+  - One simple widget state model only:
+    - `Not connected to an approved network.`
+    - Connected to approved network with actionable wake controls.
+  - Include `Wake all` action at the top.
+  - Show machine rows below, each row with single-tap wake action.
+  - Make machine list vertically scrollable for larger sets.
+- [x] Choose widget implementation path:
+  - Prefer classic App Widget (`AppWidgetProvider` + `RemoteViews` + collection view) for reliable scrollable lists.
+  - Document why this choice is used instead of adding more framework complexity now (SOLID + YAGNI).
+- [x] Add widget plumbing to manifest and resources:
+  - Register widget provider receiver.
+  - Add app widget metadata XML (`minWidth`, `minHeight`, update cadence, resize behavior).
+  - Add widget layouts for:
+    - Non-approved network state.
+    - Approved network state with `Wake all` + machine collection view.
+- [x] Implement widget data orchestration:
+  - Create a widget-specific state provider that reuses existing repository and Wi-Fi identity logic.
+  - Keep a single source of truth for approved-network checks to avoid divergence with in-app gating (DRY).
+  - Add lightweight refresh triggers on:
+    - Widget update events.
+    - App resume / network refresh points.
+    - Relevant data changes (approved networks or machines).
+- [x] Implement widget actions:
+  - Add broadcast/pending-intent route for `Wake all`.
+  - Add per-machine wake intent from each list row.
+  - Reuse existing WoL sender service logic so packet behavior remains identical to in-app actions (DRY).
+- [x] Add guardrails and user feedback:
+  - If wake is requested while no longer approved, no-op safely and show a short toast/status message.
+  - Handle empty-machine state with clear message.
+  - Prevent duplicate rapid taps from enqueuing excessive wake sends.
+- [ ] Testing:
+  - Add unit tests for widget state mapping:
+    - Non-approved -> warning state.
+    - Approved + no machines -> empty-state list message.
+    - Approved + machines -> populated list state.
+  - Add action tests:
+    - `Wake all` sends for only current approved network machines.
+    - Single machine action sends exactly one packet to target MAC.
+  - Add manual smoke checklist on device:
+    - Place widget on home screen.
+    - Verify state flips when moving between approved/non-approved Wi-Fi.
+    - Verify scroll behavior with large machine list.
+    - Verify single-tap wake path from locked and unlocked states.
+  - Unit tests for widget state/action passed with `:app:testDebugUnitTest` on `2026-04-08`.
+  - Device/emulator widget smoke check still pending.
+- [x] Documentation:
+  - Update README with widget setup and behavior notes.
+  - Add troubleshooting notes for delayed widget refresh behavior across OEM launchers.
+
 ## Outstanding Decisions
 
-All previously identified decisions are now resolved.
+All Phase 1-5 decisions are resolved; widget-specific decisions are listed below.
+
+### 5. Which widget stack should we use for v1 (classic `RemoteViews` vs Glance)?
+- Status: Resolved
+- Decision: Use classic `RemoteViews` collection widget.
+- Rationale: It provides reliable scrollable list behavior and per-row click handling without adding extra framework complexity in v1.
 
 ### 1. Should approved networks be matched by exact SSID only, or include additional constraints (for example BSSID)?
 - Status: Resolved
@@ -140,3 +196,9 @@ All previously identified decisions are now resolved.
 - [x] Long-pressing a machine shows `Edit computer` and `Remove computer` options.
 - [x] User can edit an existing machine and save changes with validation preserved.
 - [x] User can remove an existing machine with confirmation and immediate list update.
+- [x] User can place a home-screen widget that shows:
+  - `Not connected to an approved network.` when not approved.
+  - `Wake all` plus machine rows when approved.
+- [x] Machine rows in the widget are vertically scrollable when the list exceeds available widget height.
+- [x] Tapping `Wake all` in widget sends WoL to current approved-network machines.
+- [x] Tapping a machine row in widget sends WoL only to that machine.
